@@ -1,0 +1,48 @@
+name: 筛选 DMR 用户列表
+
+on:
+  schedule:
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: china-radioid-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 下载 RadioID 用户数据
+        run: |
+          curl --fail --location --retry 5 --retry-delay 10 \
+            --connect-timeout 30 --max-time 600 \
+            https://radioid.net/static/user.csv --output user.csv
+
+      - name: 筛选中国所有地区
+        run: python filter_china_radioid.py
+
+      - name: 创建 Release
+        env:
+          TARGET_COMMIT: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_date="$(TZ=Asia/Shanghai date +%F)"
+          if gh release view "$release_date" >/dev/null 2>&1; then
+            gh release upload "$release_date" '中国所有地区.csv' --clobber
+          else
+            gh release create "$release_date" '中国所有地区.csv' \
+              --target "$TARGET_COMMIT" \
+              --title "$release_date"
+          fi
