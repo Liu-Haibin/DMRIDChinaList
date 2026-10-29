@@ -40,18 +40,24 @@ jobs:
           set -euo pipefail
           release_date="$(TZ=Asia/Shanghai date +%F)"
           shopt -s nullglob
-          assets=()
-          for file in csv/*.csv; do
-            assets+=("${file}#$(basename "$file")")
-          done
-          if (( ${#assets[@]} == 0 )); then
+          files=(csv/*.csv)
+          if (( ${#files[@]} == 0 )); then
             echo "csv/ 中没有 CSV 文件，停止发布。" >&2
             exit 1
           fi
-          if gh release view "$release_date" >/dev/null 2>&1; then
-            gh release upload "$release_date" "${assets[@]}" --clobber
-          else
-            gh release create "$release_date" "${assets[@]}" \
+          if ! gh release view "$release_date" >/dev/null 2>&1; then
+            gh release create "$release_date" \
               --target "$TARGET_COMMIT" \
-              --title "$release_date"
+              --title "$release_date" --notes ""
           fi
+          # 中文源文件保留；上传副本采用唯一 ASCII 名称，中文只用作显示标签。
+          upload_dir="$(mktemp -d)"
+          trap 'rm -rf -- "$upload_dir"' EXIT
+          for file in "${files[@]}"; do
+            label="$(basename "$file")"
+            file_key="$(printf '%s' "$label" | sha256sum | cut -c1-16)"
+            asset="$upload_dir/region-${file_key}.csv"
+            cp -- "$file" "$asset"
+            echo "上传：$label -> $(basename "$asset")"
+            gh release upload "$release_date" "${asset}#${label}" --clobber
+          done
