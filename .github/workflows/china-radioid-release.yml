@@ -39,10 +39,19 @@ jobs:
         run: |
           set -euo pipefail
           release_date="$(TZ=Asia/Shanghai date +%F)"
+          shopt -s nullglob
+          assets=()
+          for file in csv/*.csv; do
+            assets+=("${file}#$(basename "$file")")
+          done
+          if (( ${#assets[@]} == 0 )); then
+            echo "csv/ 中没有 CSV 文件，停止发布。" >&2
+            exit 1
+          fi
           if gh release view "$release_date" >/dev/null 2>&1; then
-            gh release upload "$release_date" '中国所有地区.csv#中国所有地区.csv' --clobber
+            gh release upload "$release_date" "${assets[@]}" --clobber
           else
-            gh release create "$release_date" '中国所有地区.csv#中国所有地区.csv' \
+            gh release create "$release_date" "${assets[@]}" \
               --target "$TARGET_COMMIT" \
               --title "$release_date"
           fi
