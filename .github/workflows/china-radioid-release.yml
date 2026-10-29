@@ -40,9 +40,9 @@ jobs:
           set -euo pipefail
           release_date="$(TZ=Asia/Shanghai date +%F)"
           if gh release view "$release_date" >/dev/null 2>&1; then
-            gh release upload "$release_date" '中国所有地区.csv' --clobber
+            gh release upload "$release_date" '中国所有地区.csv#中国所有地区.csv' --clobber
           else
-            gh release create "$release_date" '中国所有地区.csv' \
+            gh release create "$release_date" '中国所有地区.csv#中国所有地区.csv' \
               --target "$TARGET_COMMIT" \
               --title "$release_date"
           fi
